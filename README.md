@@ -1,4 +1,4 @@
-# Fable Reaction WebSocket Example
+# Fable Reaction Pre-Code Example
 
 This example shows how to stream messages between the server and the client.
 
@@ -15,8 +15,3 @@ This example shows how to stream messages between the server and the client.
 ```shell
 > fake build --target run
 ```
-
-## Usage
-
-To run the demo, open two (2) or more browsers targeting the service. Then push buttons in one browser and
-see the counter being modified in the other browsers.
