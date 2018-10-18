@@ -6,40 +6,37 @@ open Thoth.Json
 open Thoth.Json.Net
 #endif
 
-type Counter = int
-
 // The Msg type defines what events/actions can occur while the application is running
 // the state of the application changes *only* in reaction to these events
-type Msg =
-    | Increment
-    | Decrement
-    | InitialCountLoaded of Result<Counter, exn>
+type Msg = {
+    Mmsi: int;
+    Time: string;
+    Latitude: float;
+    Longitude: float;
+}
 
+type Msg with
     static member Encode (msg: Msg) : string =
-        let data =
-            match msg with
-            | Increment ->
-                Encode.object [ "msg", Encode.string "increment"]
-            | Decrement ->
-                Encode.object [ "msg", Encode.string "decrement"]
-            | _ ->
-                Encode.object []
+        let encoder = Encode.object [
+              "mmsi", Encode.int msg.Mmsi
+              "time", Encode.string msg.Time
+              "lat", Encode.float msg.Latitude
+              "lon", Encode.float msg.Longitude
+            ]
 
-        Encode.toString 4 data
+        Encode.toString 4 encoder
 
-    static member Decode (json: string) : Option<Msg> =
-        let decodeMsg =
-            (Decode.field "msg" Decode.string)
-            |> Decode.map (fun str ->
-                            match str with
-                            | "increment" -> Increment
-                            | "decrement" -> Decrement
-                            | _ -> Decrement
-                          )
-        let result = Decode.fromString decodeMsg json
+    static member Decode (json: string) : Msg option =
+        let decoder = Decode.object (fun get ->
+                {
+                  Mmsi = get.Required.Field "mmsi" Decode.int
+                  Time = get.Required.Field "time" Decode.string
+                  Latitude = get.Required.Field "lat" Decode.float
+                  Longitude = get.Required.Field "lon" Decode.float
+                }
+            )
 
+        let result = Decode.fromString decoder json
         match result with
-        | Ok msg ->
-            Some msg
-        | Error err ->
-            None
+        | Ok msg -> Some msg
+        | Error _ -> None
