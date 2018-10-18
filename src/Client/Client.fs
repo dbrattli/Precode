@@ -3,11 +3,9 @@ module Client
 open Elmish
 open Elmish.React
 
-open System
 open Fable.Core.JsInterop
 open Fable.Helpers.React
 open Fable.Helpers.React.Props
-open Fable.PowerPack.Fetch
 open Fable.Reaction
 open Fable.Reaction.WebSocket
 open Reaction
@@ -17,40 +15,30 @@ open Fulma
 open ReactLeaflet
 
 // The model holds data that you want to keep track of while the application is running
-// in this case, we are keeping track of a counter
-// we mark it as optional, because initially it will not be available from the client
-// the initial value will be requested from server
-type Model = { Counter: Counter option }
+type Ship = {
+    Latitude: float
+    Longitude: float
+    Speed: float
+    Heading: float
+}
+
+type Mmsi = int
+type Model = { Ships: Map<Mmsi, Ship> }
 
 // defines the initial state and initial command (= side-effect) of the application
-let init () : Model * Cmd<Msg> =
-    let initialModel = { Counter = None }
-    let loadCountCmd =
-        let decoder = Thoth.Json.Decode.int
-        Cmd.ofPromise
-            (fetchAs<int> "/api/init" decoder)
-            []
-            (Ok >> InitialCountLoaded)
-            (Result.Error >> InitialCountLoaded)
-    initialModel, loadCountCmd
+let init () : Model =
+    let initialModel = { Ships = Map.empty }
+
+    initialModel
 
 // The update function computes the next state of the application based on the current state and the incoming events/messages
 // It can also run side-effects (encoded as commands) like calling the server via Http.
 // these commands in turn, can dispatch messages to which the update function will react.
-let update (msg : Msg) (currentModel : Model) : Model * Cmd<Msg> =
-    match currentModel.Counter, msg with
-    | Some x, Increment ->
-        let nextModel = { currentModel with Counter = Some (x + 1) }
-        nextModel, Cmd.none
-    | Some x, Decrement ->
-        let nextModel = { currentModel with Counter = Some (x - 1) }
-        nextModel, Cmd.none
-    | _, InitialCountLoaded (Ok initialCount)->
-        let nextModel = { Counter = Some initialCount }
-        nextModel, Cmd.none
+let update (msg : Msg) (currentModel : Model) : Model =
 
-    | _ -> currentModel, Cmd.none
+    // TODO: implement the new model based on the received message here
 
+    currentModel
 
 let safeComponents =
     let components =
@@ -70,10 +58,6 @@ let safeComponents =
           str " powered by: "
           components ]
 
-let show = function
-| { Counter = Some x } -> string x
-| { Counter = None   } -> "Loading..."
-
 let button txt onClick =
     Button.button
         [ Button.IsFullWidth
@@ -82,11 +66,6 @@ let button txt onClick =
         [ str txt ]
 
 let view model dispatch =
-    let zoom =
-        match model.Counter with
-        | Some value -> value
-        | None -> 13
-
     div [] [
         Navbar.navbar [ Navbar.Color IsPrimary ] [
             Navbar.Item.div [] [
@@ -96,10 +75,14 @@ let view model dispatch =
             ]
         ]
 
+        // TODO: the map needs to draw the ships from the model in the map.
+
+        // TODO: Add hover on each ship to display speed and heading
+
         ReactLeaflet.map [
-            MapProps.Center !^ (69.4, 24.2)
+            MapProps.Center !^ (69.65, 18.57)
             MapProps.SetView true
-            MapProps.Zoom (float zoom)
+            MapProps.Zoom (float 10)
             MapProps.ZoomSnap 0.1
             MapProps.Id "myMap"
             MapProps.Style [ CSSProp.Height "500px" ]
@@ -110,22 +93,6 @@ let view model dispatch =
             ] []
           ]
 
-        Container.container [] [
-            Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ] [
-                Heading.h3 [] [
-                    str ("Press buttons to zoom: " + show model)
-                ]
-            ]
-            Columns.columns [] [
-                Column.column [] [
-                    button "-" (fun _ -> dispatch Decrement)
-                ]
-                Column.column [] [
-                    button "+" (fun _ -> dispatch Increment)
-                ]
-            ]
-        ]
-
         Footer.footer [] [
             Content.content [ Content.Modifiers [ Modifier.TextAlignment (Screen.All, TextAlignment.Centered) ] ] [
                 safeComponents
@@ -133,16 +100,25 @@ let view model dispatch =
         ]
     ]
 
+// Simple debug operator that prints messages to the console.
+let Debug =
+    AsyncObservable.map (fun msg ->
+        printfn "%A" msg
+        msg)
+
 let query (msgs: IAsyncObservable<Msg>) =
     msgs
     |> msgChannel "ws://localhost:8085/ws" Msg.Encode Msg.Decode
+    |> Debug
+
+    // TODO: add operators her to calculate speed/heading per ship
 
 #if DEBUG
 open Elmish.Debug
 open Elmish.HMR
 #endif
 
-Program.mkProgram init update view
+Program.mkSimple init update view
 |> Program.withQuery query
 #if DEBUG
 |> Program.withConsoleTrace
