@@ -32,9 +32,9 @@ module.exports = {
     },
     devServer: {
         proxy: {
-            '/api/*': {
-                target: 'http://localhost:' + port,
-                changeOrigin: true
+            '/ws/*': {
+                target: 'ws://localhost:' + port,
+                ws: true,
             }
         },
         contentBase: "./src/Client/public",
